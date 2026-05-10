@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodCount — Dashboard Statistik</title>
+  <meta name="description" content="Dashboard analitik penjualan harian FoodCount. Pantau omzet, keuntungan, dan tren penjualan UMKM sarapan Anda.">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js untuk grafik penjualan -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Konfigurasi Tailwind dengan warna kustom FoodCount -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0D1B2A', light: '#1A2F45', mid: '#162032' },
+            gold: { DEFAULT: '#C9A84C', light: '#E8C96B', pale: '#F5E6B8' },
+            cream: { DEFAULT: '#F8F4EF', dark: '#EDE8E1' },
+            amber: { DEFAULT: '#D97706', light: '#FEF3C7' }
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background: linear-gradient(135deg, #0D1B2A 0%, #1A2F45 100%); min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0D1B2A; }
+    ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 3px; }
+
+    /* Animasi masuk untuk kartu statistik */
+    @keyframes countUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .stat-card { animation: countUp 0.5s ease-out both; }
+    .stat-card:nth-child(2) { animation-delay: 0.1s; }
+    .stat-card:nth-child(3) { animation-delay: 0.2s; }
+
+    /* Garis bawah aksen gold untuk judul kartu */
+    .card-title::after {
+      content: '';
+      display: block;
+      width: 32px;
+      height: 2px;
+      background: #C9A84C;
+      margin-top: 6px;
+      border-radius: 1px;
+    }
+  </style>
+</head>
+
+<body class="font-sans text-white">
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="bg-navy-mid border-b border-navy-light shadow-2xl sticky top-0 z-50 bg-opacity-95 backdrop-blur-sm" style="background: rgba(13,27,42,0.97);">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🍽️</span>
+        <h1 class="text-xl font-black text-gold tracking-widest">FOODCOUNT</h1>
+      </div>
+      <div class="flex gap-1 md:gap-4 text-sm font-semibold">
+        <a href="dashboard.html" id="nav-dashboard" class="text-gold border-b-2 border-gold px-3 py-2 rounded-lg">📊 Dashboard</a>
+        <a href="index.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">🧾 Kasir</a>
+        <a href="stok.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">📦 Stok</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== KONTEN UTAMA ===== -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+
+    <!-- JUDUL HALAMAN -->
+    <div class="mb-8">
+      <h2 class="text-3xl font-black text-white">Dashboard Penjualan</h2>
+      <p class="text-gray-400 mt-1">Pantau performa warung Anda hari ini 📈</p>
+      <!-- Tanggal hari ini -->
+      <p id="tanggal-hari-ini" class="text-gold text-sm mt-1 font-semibold"></p>
+    </div>
+
+    <!-- ============================= -->
+    <!-- BARIS KARTU STATISTIK          -->
+    <!-- ============================= -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+      <!-- Kartu 1: Total Omzet -->
+      <div class="stat-card bg-navy-light rounded-2xl p-6 border border-gray-700 hover:border-gold transition-colors shadow-xl">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Omzet</p>
+            <p class="card-title text-gray-400 text-xs">Pendapatan Kotor Hari Ini</p>
+          </div>
+          <!-- Ikon omzet -->
+          <div class="w-12 h-12 bg-gold bg-opacity-20 rounded-xl flex items-center justify-center">
+            <span class="text-2xl">💰</span>
+          </div>
+        </div>
+        <p id="stat-omzet" class="text-3xl font-black text-white font-mono">Rp 0</p>
+        <p id="stat-omzet-trend" class="text-gray-400 text-xs mt-2">Memuat data...</p>
+      </div>
+
+      <!-- Kartu 2: Total Keuntungan Bersih (Emerald Green) -->
+      <div class="stat-card bg-navy-light rounded-2xl p-6 border border-emerald-800 hover:border-emerald-500 transition-colors shadow-xl relative overflow-hidden">
+        <!-- Aksen latar emerald samar -->
+        <div class="absolute inset-0 bg-emerald-900 bg-opacity-20 rounded-2xl pointer-events-none"></div>
+        <div class="relative">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Keuntungan Bersih</p>
+              <p class="card-title text-emerald-400 text-xs">Laba Setelah HPP</p>
+            </div>
+            <div class="w-12 h-12 bg-emerald-600 bg-opacity-30 rounded-xl flex items-center justify-center">
+              <span class="text-2xl">📈</span>
+            </div>
+          </div>
+          <p id="stat-untung" class="text-3xl font-black text-emerald-400 font-mono">Rp 0</p>
+          <p id="stat-margin" class="text-emerald-600 text-xs mt-2">Margin: 0%</p>
+        </div>
+      </div>
+
+      <!-- Kartu 3: Total Porsi Terjual -->
+      <div class="stat-card bg-navy-light rounded-2xl p-6 border border-gray-700 hover:border-gold transition-colors shadow-xl">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Porsi Terjual</p>
+            <p class="card-title text-gray-400 text-xs">Jumlah Transaksi Hari Ini</p>
+          </div>
+          <div class="w-12 h-12 bg-gold bg-opacity-20 rounded-xl flex items-center justify-center">
+            <span class="text-2xl">🍱</span>
+          </div>
+        </div>
+        <p id="stat-porsi" class="text-3xl font-black text-white font-mono">0</p>
+        <p id="stat-transaksi" class="text-gray-400 text-xs mt-2">0 transaksi selesai</p>
+      </div>
+
+    </div><!-- /stat cards -->
+
+    <!-- ============================= -->
+    <!-- GRAFIK PENJUALAN MINGGUAN      -->
+    <!-- ============================= -->
+    <div class="bg-navy-light rounded-2xl p-6 border border-gray-700 shadow-xl mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 class="text-lg font-black text-white">Grafik Penjualan</h3>
+          <p class="text-gray-400 text-xs mt-1">7 Hari Terakhir</p>
+        </div>
+        <!-- Indikator legenda -->
+        <div class="flex gap-4 text-xs">
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-gold rounded inline-block"></span> Omzet</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-emerald-400 rounded inline-block"></span> Untung</span>
+        </div>
+      </div>
+      <!-- Canvas untuk Chart.js Line Chart -->
+      <div class="relative h-64">
+        <canvas id="grafik-penjualan"></canvas>
+      </div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- TABEL PENJUALAN PER PRODUK    -->
+    <!-- ============================= -->
+    <div class="bg-navy-light rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+      <div class="p-6 border-b border-gray-700">
+        <h3 class="text-lg font-black text-white">Performa Per Menu</h3>
+        <p class="text-gray-400 text-xs mt-1">Rincian penjualan masing-masing produk hari ini</p>
+      </div>
+
+      <!-- Tabel Produk -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-700">
+              <th class="text-left p-4 text-gray-400 font-semibold text-xs uppercase">Menu</th>
+              <th class="text-right p-4 text-gray-400 font-semibold text-xs uppercase">Terjual</th>
+              <th class="text-right p-4 text-gray-400 font-semibold text-xs uppercase">Omzet</th>
+              <th class="text-right p-4 text-gray-400 font-semibold text-xs uppercase">Keuntungan</th>
+            </tr>
+          </thead>
+          <!-- Baris data diisi oleh dashboard.js -->
+          <tbody id="tabel-produk">
+            <tr>
+              <td colspan="4" class="p-8 text-center text-gray-500">
+                <div class="flex flex-col items-center gap-2">
+                  <span class="text-3xl">⏳</span>
+                  <span>Memuat data penjualan...</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /tabel produk -->
+
+  </main>
+
+  <!-- ===== CROOT.JS ===== -->
+  <script src="https://cdn.jsdelivr.net/gh/jscroot/jarak@0.0.1/croot.js"></script>
+
+  <!-- Controller dashboard — logika terpisah (modular) -->
+  <script src="js/controller/dashboard.js" type="module"></script>
+
+</body>
+
+</html>

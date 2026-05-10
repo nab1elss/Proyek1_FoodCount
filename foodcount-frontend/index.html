@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodCount — Kasir Sarapan</title>
+  <meta name="description" content="Sistem kasir digital UMKM sarapan FoodCount. Catat transaksi, kurangi stok otomatis, dan hasilkan struk QR digital.">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- QRCode.js untuk generate QR Struk Digital -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy:  { DEFAULT: '#0D1B2A', light: '#1A2F45' },
+            gold:  { DEFAULT: '#C9A84C', light: '#E8C96B', pale: '#F5E6B8' },
+            cream: { DEFAULT: '#F8F4EF', dark: '#EDE8E1' },
+            amber: { DEFAULT: '#D97706' },
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background: linear-gradient(135deg, #F8F4EF 0%, #EDE8E1 100%); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #F8F4EF; }
+    ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 3px; }
+
+    /* Animasi item keranjang */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .cart-item { animation: fadeIn 0.2s ease-out; }
+    .menu-btn:active { transform: scale(0.95); }
+    .nav-active { border-bottom: 2px solid #C9A84C; color: #C9A84C; }
+
+    /* QRIS berkedip saat belum diupload */
+    @keyframes pulse-gold {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.5); }
+      50%       { box-shadow: 0 0 0 14px rgba(201,168,76,0); }
+    }
+    .qris-pulse { animation: pulse-gold 2s infinite; }
+
+    /* Animasi modal muncul */
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.92) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-box { animation: modalIn 0.25s ease-out; }
+
+    /* Tombol metode bayar saat dipilih/hover */
+    .metode-btn { transition: all 0.2s; }
+    .metode-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .metode-btn:active { transform: scale(0.97); }
+  </style>
+</head>
+
+<body class="min-h-screen font-sans">
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="bg-navy shadow-2xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🍽️</span>
+        <h1 class="text-xl font-black text-gold tracking-widest">FOODCOUNT</h1>
+      </div>
+      <div class="flex gap-1 md:gap-4 text-sm font-semibold">
+        <a href="dashboard.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">📊 Dashboard</a>
+        <a href="index.html" class="nav-active px-3 py-2 rounded-lg">🧾 Kasir</a>
+        <a href="stok.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">📦 Stok</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== KONTEN UTAMA ===== -->
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex flex-col lg:flex-row gap-6">
+
+      <!-- ========================= -->
+      <!-- PANEL KIRI: MENU + QRIS   -->
+      <!-- ========================= -->
+      <div class="lg:w-3/5 flex flex-col gap-5">
+
+        <div>
+          <h2 class="text-2xl font-black text-navy">Pilih Menu Sarapan</h2>
+          <p class="text-gray-500 text-sm mt-1">Ketuk menu untuk ditambah ke keranjang</p>
+        </div>
+
+        <!-- Grid Tombol Menu Besar -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="menu-grid">
+
+          <button id="btn-nasgor"
+            class="menu-btn bg-white rounded-2xl shadow-md border-2 border-cream-dark hover:border-gold hover:shadow-xl transition-all p-6 text-center group">
+            <span class="block text-5xl mb-3 group-hover:scale-110 transition-transform">🍳</span>
+            <span class="block font-black text-navy text-lg">Nasgor DU</span>
+            <span class="block text-emerald-600 font-bold mt-1">Rp 10.000</span>
+            <span class="block text-gray-400 text-xs mt-1">HPP: Rp 5.000</span>
+          </button>
+
+          <button id="btn-mie"
+            class="menu-btn bg-white rounded-2xl shadow-md border-2 border-cream-dark hover:border-gold hover:shadow-xl transition-all p-6 text-center group">
+            <span class="block text-5xl mb-3 group-hover:scale-110 transition-transform">🍜</span>
+            <span class="block font-black text-navy text-lg">Mie Ayam</span>
+            <span class="block text-emerald-600 font-bold mt-1">Rp 12.000</span>
+            <span class="block text-gray-400 text-xs mt-1">HPP: Rp 6.000</span>
+          </button>
+
+          <button id="btn-ayam"
+            class="menu-btn bg-white rounded-2xl shadow-md border-2 border-cream-dark hover:border-gold hover:shadow-xl transition-all p-6 text-center group">
+            <span class="block text-5xl mb-3 group-hover:scale-110 transition-transform">🍱</span>
+            <span class="block font-black text-navy text-lg">Ayam Teriyaki</span>
+            <span class="block text-emerald-600 font-bold mt-1">Rp 15.000</span>
+            <span class="block text-gray-400 text-xs mt-1">HPP: Rp 8.000</span>
+          </button>
+
+        </div>
+
+        <!-- ======================================= -->
+        <!-- QRIS PERMANEN                           -->
+        <!-- Pelanggan scan ini untuk bayar mandiri  -->
+        <!-- Upload foto QRIS GoPay/OVO/BCA kamu     -->
+        <!-- ======================================= -->
+        <div class="bg-navy rounded-2xl shadow-xl p-5 flex flex-col md:flex-row items-center gap-5">
+          <div class="flex-1">
+            <span class="bg-gold text-navy text-xs font-black px-3 py-1 rounded-full">BAYAR MANDIRI</span>
+            <h3 class="text-white font-black text-lg mt-2 leading-tight">Scan QRIS untuk Bayar</h3>
+            <p class="text-gray-400 text-sm mt-1">Ambil makanan → Hitung total → Scan → Transfer</p>
+            <div class="mt-3 space-y-1 text-xs text-gray-400">
+              <p>🍳 Nasgor DU = <span class="text-gold font-bold">Rp 10.000</span></p>
+              <p>🍜 Mie Ayam = <span class="text-gold font-bold">Rp 12.000</span></p>
+              <p>🍱 Ayam Teriyaki = <span class="text-gold font-bold">Rp 15.000</span></p>
+            </div>
+            <!-- Catatan alur QRIS untuk pemilik -->
+            <p class="text-gray-500 text-xs mt-3 border-t border-navy-light pt-3">
+              💡 Uang masuk ke GoPay/OVO kamu. Tap
+              <strong class="text-gold">"QRIS Masuk"</strong>
+              di kasir setelah lihat notif di HP.
+            </p>
+          </div>
+
+          <!-- Kotak QRIS — klik untuk upload foto QRIS kamu -->
+          <div class="flex flex-col items-center gap-2">
+            <div id="qris-permanen-box"
+              class="qris-pulse w-40 h-40 bg-white rounded-2xl flex flex-col items-center justify-center border-4 border-gold shadow-2xl cursor-pointer"
+              onclick="document.getElementById('upload-qris').click()"
+              title="Klik untuk upload foto QRIS kamu">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-navy opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/>
+              </svg>
+              <p class="text-navy text-xs font-bold mt-1">Upload QRIS</p>
+            </div>
+            <input type="file" id="upload-qris" accept="image/*" class="hidden">
+            <p class="text-gray-500 text-xs text-center">Tap untuk upload<br>foto QRIS kamu</p>
+          </div>
+        </div>
+
+      </div><!-- /panel kiri -->
+
+      <!-- ========================= -->
+      <!-- PANEL KANAN: KERANJANG    -->
+      <!-- ========================= -->
+      <div class="lg:w-2/5">
+        <div class="bg-navy rounded-3xl shadow-2xl p-6 sticky top-20">
+
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xl font-black text-white">🛒 Keranjang</h2>
+            <button id="btn-kosongkan"
+              class="text-gray-400 hover:text-amber text-xs font-semibold border border-gray-600 hover:border-amber px-3 py-1 rounded-lg transition-colors">
+              Kosongkan
+            </button>
+          </div>
+
+          <div id="keranjang-list" class="space-y-2 min-h-[180px] max-h-[280px] overflow-y-auto pr-1">
+            <div class="flex flex-col items-center justify-center h-36 text-gray-500">
+              <span class="text-4xl mb-2">🍽️</span>
+              <p class="text-sm">Belum ada pesanan</p>
+            </div>
+          </div>
+
+          <div class="border-t border-navy-light my-4"></div>
+
+          <div class="space-y-2 mb-5">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-400 text-sm">Total Harga</span>
+              <span id="total-harga" class="text-white font-black text-2xl font-mono">Rp 0</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-400 text-sm">Est. Keuntungan</span>
+              <span id="total-untung" class="text-emerald-400 font-bold font-mono">Rp 0</span>
+            </div>
+          </div>
+
+          <!-- Dua tombol langsung di kasir — 1 tap langsung proses -->
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <!-- Bayar Tunai — 1 tap, langsung tercatat -->
+            <button id="btn-bayar-tunai"
+              class="metode-btn bg-white text-navy py-4 rounded-xl font-black text-sm shadow active:scale-95 flex flex-col items-center gap-1">
+              <span class="text-2xl">💵</span>
+              Bayar Tunai
+            </button>
+            <!-- QRIS Masuk — tap setelah lihat notif HP -->
+            <button id="btn-bayar-qris"
+              class="metode-btn bg-gold text-navy py-4 rounded-xl font-black text-sm shadow active:scale-95 flex flex-col items-center gap-1">
+              <span class="text-2xl">📱</span>
+              QRIS Masuk
+            </button>
+          </div>
+
+          <p id="info-jumlah" class="text-center text-gray-500 text-xs">0 item dalam keranjang</p>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ================================================ -->
+  <!-- MODAL STRUK QR DIGITAL                           -->
+  <!-- Muncul OTOMATIS setelah tap Tunai atau QRIS      -->
+  <!-- Tidak ada langkah konfirmasi ekstra              -->
+  <!-- ================================================ -->
+  <div id="modal-struk" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+    <div class="modal-box bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+
+      <!-- Header sukses -->
+      <div class="bg-navy p-5 text-center">
+        <div class="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span class="text-3xl">✅</span>
+        </div>
+        <h3 class="text-white font-black text-xl">Tercatat! Stok Turun.</h3>
+        <p id="struk-metode" class="text-gray-400 text-sm mt-1">via Tunai</p>
+      </div>
+
+      <!-- Isi struk -->
+      <div class="p-6">
+
+        <!-- Total -->
+        <div class="text-center mb-5">
+          <p class="text-gray-400 text-xs uppercase tracking-wider mb-1">Total Pembayaran</p>
+          <p id="struk-total" class="text-4xl font-black text-navy font-mono">Rp 0</p>
+          <div class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full mt-2">
+            <span>💰</span>
+            <span>Untung: </span>
+            <span id="struk-untung" class="font-mono">Rp 0</span>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- KALKULATOR KEMBALIAN — hanya muncul saat    -->
+        <!-- metode bayar = tunai                        -->
+        <!-- ============================================ -->
+        <div id="box-kembalian" class="hidden bg-cream rounded-2xl p-4 mb-5">
+          <p class="text-xs font-bold text-navy uppercase tracking-wider mb-3">💵 Kalkulator Kembalian</p>
+
+          <!-- Tombol nominal cepat — pecahan umum uang -->  
+          <div class="grid grid-cols-5 gap-2 mb-3">
+            <!-- Tap nominal → otomatis isi input uang diterima -->
+            <button onclick="setNominal(5000)"   class="nominal-btn bg-white border-2 border-cream-dark hover:border-gold rounded-xl py-2 text-center text-xs font-black text-navy transition-all active:scale-95">5rb</button>
+            <button onclick="setNominal(10000)"  class="nominal-btn bg-white border-2 border-cream-dark hover:border-gold rounded-xl py-2 text-center text-xs font-black text-navy transition-all active:scale-95">10rb</button>
+            <button onclick="setNominal(20000)"  class="nominal-btn bg-white border-2 border-cream-dark hover:border-gold rounded-xl py-2 text-center text-xs font-black text-navy transition-all active:scale-95">20rb</button>
+            <button onclick="setNominal(50000)"  class="nominal-btn bg-white border-2 border-cream-dark hover:border-gold rounded-xl py-2 text-center text-xs font-black text-navy transition-all active:scale-95">50rb</button>
+            <button onclick="setNominal(100000)" class="nominal-btn bg-white border-2 border-cream-dark hover:border-gold rounded-xl py-2 text-center text-xs font-black text-navy transition-all active:scale-95">100rb</button>
+          </div>
+
+          <!-- Input manual uang diterima -->
+          <div class="flex gap-2 items-center mb-3">
+            <div class="relative flex-1">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">Rp</span>
+              <input
+                id="input-uang-diterima"
+                type="number"
+                min="0"
+                placeholder="Ketik nominal uang..."
+                oninput="hitungKembalian()"
+                class="w-full border-2 border-cream-dark rounded-xl pl-10 pr-3 py-2.5 text-navy font-bold focus:border-gold focus:outline-none text-sm"
+              >
+            </div>
+          </div>
+
+          <!-- Hasil kembalian — ditampilkan oleh JS -->
+          <div class="flex justify-between items-center bg-white rounded-xl px-4 py-3 border-2 border-cream-dark">
+            <span class="text-navy font-bold text-sm">Kembalian</span>
+            <span id="hasil-kembalian" class="font-black text-2xl font-mono text-navy">—</span>
+          </div>
+          <!-- Peringatan jika uang kurang -->
+          <p id="pesan-kurang" class="hidden text-amber text-xs font-bold mt-2 text-center">⚠️ Uang kurang dari total!</p>
+        </div>
+
+        <!-- QR Struk Digital -->
+        <div class="bg-cream rounded-2xl p-4 text-center mb-5">
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            📄 Struk Digital — Minta Pelanggan Scan
+          </p>
+          <!-- QRCode.js inject QR di sini -->
+          <div id="qr-struk-container" class="flex justify-center mb-2"></div>
+          <p class="text-gray-400 text-xs">Scan → lihat rincian belanja di HP</p>
+          <p id="struk-nomor" class="text-navy font-bold text-xs mt-1">No. FC-000000</p>
+        </div>
+
+        <!-- Tombol Transaksi Baru -->
+        <button id="btn-transaksi-baru"
+          class="w-full bg-navy text-gold py-4 rounded-xl font-black text-base hover:bg-navy-light transition-colors">
+          ✅ Siap! Transaksi Baru
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/gh/jscroot/jarak@0.0.1/croot.js"></script>
+  <script src="js/controller/main.js" type="module"></script>
+</body>
+</html>

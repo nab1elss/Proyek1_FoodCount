@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodCount — Manajemen Stok</title>
+  <meta name="description" content="Manajemen stok harian UMKM sarapan FoodCount. Input stok awal pagi hari dan pantau sisa stok setiap produk.">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Konfigurasi Tailwind dengan warna kustom FoodCount -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0D1B2A', light: '#1A2F45', mid: '#162032' },
+            gold: { DEFAULT: '#C9A84C', light: '#E8C96B', pale: '#F5E6B8' },
+            cream: { DEFAULT: '#F8F4EF', dark: '#EDE8E1' },
+            amber: { DEFAULT: '#D97706', light: '#FEF3C7', border: '#F59E0B' }
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background: linear-gradient(135deg, #F8F4EF 0%, #EDE8E1 100%); min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #F8F4EF; }
+    ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 3px; }
+
+    /* Animasi baris tabel muncul dari bawah */
+    @keyframes rowFadeIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .tabel-baris { animation: rowFadeIn 0.3s ease-out both; }
+
+    /* Badge stok cukup (emerald) */
+    .badge-cukup {
+      background: #D1FAE5;
+      color: #065F46;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* Badge stok rendah (amber/orange) — BUKAN merah */
+    .badge-rendah {
+      background: #FEF3C7;
+      color: #92400E;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border: 1px solid #F59E0B;
+    }
+
+    /* Badge stok habis (abu-abu) */
+    .badge-habis {
+      background: #F3F4F6;
+      color: #6B7280;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* Bar progress stok */
+    .stok-bar { transition: width 0.6s ease; }
+  </style>
+</head>
+
+<body class="font-sans min-h-screen">
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="bg-navy shadow-2xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🍽️</span>
+        <h1 class="text-xl font-black text-gold tracking-widest">FOODCOUNT</h1>
+      </div>
+      <div class="flex gap-1 md:gap-4 text-sm font-semibold">
+        <a href="dashboard.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">📊 Dashboard</a>
+        <a href="index.html" class="text-gray-400 hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-navy-light">🧾 Kasir</a>
+        <a href="stok.html" class="text-gold border-b-2 border-gold px-3 py-2 rounded-lg">📦 Stok</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== KONTEN UTAMA ===== -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+
+    <!-- JUDUL HALAMAN -->
+    <div class="mb-8">
+      <h2 class="text-3xl font-black text-navy">Manajemen Stok</h2>
+      <p class="text-gray-500 mt-1">Input stok awal pagi hari dan pantau sisa stok produk 📦</p>
+      <p id="tanggal-stok" class="text-gold text-sm mt-1 font-semibold"></p>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- FORM INPUT STOK AWAL PAGI             -->
+    <!-- ===================================== -->
+    <div class="bg-white rounded-2xl shadow-xl border border-cream-dark p-6 mb-8">
+      <!-- Header form -->
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 bg-navy rounded-xl flex items-center justify-center">
+          <span class="text-xl">☀️</span>
+        </div>
+        <div>
+          <h3 class="font-black text-navy text-lg">Input Stok Awal Pagi</h3>
+          <p class="text-gray-400 text-xs">Ketik nama produk bebas atau pilih dari saran yang ada</p>
+        </div>
+      </div>
+
+      <!-- Formulir Input Stok — Baris 1: Nama Produk + Stok -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+        <!-- Input Nama Produk — Bebas ketik, ada saran otomatis -->
+        <div class="flex flex-col gap-2">
+          <label for="pilih-produk" class="text-sm font-bold text-navy">Nama Produk</label>
+          <!-- Input bebas: ketik nama produk baru atau pilih dari saran -->
+          <input
+            id="pilih-produk"
+            type="text"
+            list="saran-produk"
+            placeholder="Ketik nama produk, cth: Lontong Sayur"
+            autocomplete="off"
+            class="border-2 border-cream-dark rounded-xl px-4 py-3 text-navy font-semibold focus:border-gold focus:outline-none bg-cream transition-colors"
+          >
+          <!-- Datalist: saran produk yang sudah ada (tidak membatasi input) -->
+          <datalist id="saran-produk">
+            <!-- Saran default — akan diperbarui dinamis dari tabel stok oleh JS -->
+            <option value="Nasgor DU">
+            <option value="Mie Ayam">
+            <option value="Ayam Teriyaki">
+          </datalist>
+          <p class="text-gray-400 text-xs">💡 Ketik bebas untuk produk baru, atau pilih dari saran</p>
+        </div>
+
+        <!-- Input Jumlah Stok -->
+        <div class="flex flex-col gap-2">
+          <label for="input-stok" class="text-sm font-bold text-navy">Stok Awal (Porsi)</label>
+          <input
+            id="input-stok"
+            type="number"
+            min="0"
+            max="9999"
+            placeholder="Contoh: 30"
+            class="border-2 border-cream-dark rounded-xl px-4 py-3 text-navy font-semibold focus:border-gold focus:outline-none bg-cream transition-colors"
+          >
+        </div>
+
+      </div><!-- /baris 1 -->
+
+      <!-- Formulir Input Stok — Baris 2: HPP + Harga Jual + Tombol (untuk produk baru) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        <!-- Input HPP (Harga Modal) — opsional untuk produk yang sudah ada -->
+        <div class="flex flex-col gap-2">
+          <label for="input-hpp" class="text-sm font-bold text-navy">
+            HPP / Harga Modal
+            <span class="text-gray-400 font-normal text-xs ml-1">(opsional, produk baru)</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Rp</span>
+            <input
+              id="input-hpp"
+              type="number"
+              min="0"
+              placeholder="5000"
+              class="w-full border-2 border-cream-dark rounded-xl pl-10 pr-4 py-3 text-navy font-semibold focus:border-gold focus:outline-none bg-cream transition-colors"
+            >
+          </div>
+        </div>
+
+        <!-- Input Harga Jual — opsional untuk produk yang sudah ada -->
+        <div class="flex flex-col gap-2">
+          <label for="input-harga-jual" class="text-sm font-bold text-navy">
+            Harga Jual
+            <span class="text-gray-400 font-normal text-xs ml-1">(opsional, produk baru)</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Rp</span>
+            <input
+              id="input-harga-jual"
+              type="number"
+              min="0"
+              placeholder="10000"
+              class="w-full border-2 border-cream-dark rounded-xl pl-10 pr-4 py-3 text-navy font-semibold focus:border-gold focus:outline-none bg-cream transition-colors"
+            >
+          </div>
+        </div>
+
+        <!-- Tombol Simpan -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-bold text-navy opacity-0">Aksi</label>
+          <button id="btn-simpan-stok"
+            class="bg-navy text-gold py-3 px-6 rounded-xl font-black text-base hover:bg-navy-light transition-colors shadow-lg active:scale-95">
+            💾 Simpan Stok
+          </button>
+        </div>
+
+      </div><!-- /baris 2 -->
+
+      <!-- Pesan sukses / gagal (tersembunyi default) -->
+      <div id="pesan-stok" class="hidden mt-4 p-4 rounded-xl font-semibold text-sm"></div>
+
+    </div><!-- /form input stok -->
+
+    <!-- ===================================== -->
+    <!-- TABEL DAFTAR PRODUK & STOK            -->
+    <!-- ===================================== -->
+    <div class="bg-white rounded-2xl shadow-xl border border-cream-dark overflow-hidden">
+      <!-- Header tabel -->
+      <div class="p-6 border-b border-cream-dark flex items-center justify-between">
+        <div>
+          <h3 class="font-black text-navy text-lg">Daftar Stok Produk</h3>
+          <p class="text-gray-400 text-xs mt-1">Klik baris untuk edit stok secara cepat</p>
+        </div>
+        <!-- Tombol refresh data -->
+        <button id="btn-refresh-stok"
+          class="border-2 border-gold text-gold px-4 py-2 rounded-xl font-bold text-sm hover:bg-gold hover:text-navy transition-all">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <!-- Tabel Stok — Responsif -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-cream border-b border-cream-dark">
+              <th class="text-left p-4 text-navy font-black text-xs uppercase tracking-wider">Produk</th>
+              <th class="text-right p-4 text-navy font-black text-xs uppercase tracking-wider">HPP</th>
+              <th class="text-right p-4 text-navy font-black text-xs uppercase tracking-wider">Harga Jual</th>
+              <th class="text-right p-4 text-navy font-black text-xs uppercase tracking-wider">Stok Awal</th>
+              <th class="text-right p-4 text-navy font-black text-xs uppercase tracking-wider">Sisa Stok</th>
+              <th class="text-center p-4 text-navy font-black text-xs uppercase tracking-wider">Status</th>
+              <th class="text-center p-4 text-navy font-black text-xs uppercase tracking-wider">Progress</th>
+            </tr>
+          </thead>
+          <!-- Baris diisi oleh stok.js -->
+          <tbody id="tabel-stok">
+            <tr>
+              <td colspan="7" class="p-10 text-center text-gray-400">
+                <div class="flex flex-col items-center gap-2">
+                  <span class="text-3xl">📦</span>
+                  <span>Memuat data stok...</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer tabel: ringkasan -->
+      <div id="ringkasan-stok" class="p-4 bg-cream border-t border-cream-dark flex flex-wrap gap-4 text-xs font-semibold text-gray-500">
+        <!-- Diisi oleh stok.js -->
+      </div>
+
+    </div><!-- /tabel stok -->
+
+  </main>
+
+  <!-- ===== MODAL KONFIRMASI SIMPAN STOK ===== -->
+  <div id="modal-stok" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center">
+      <div class="text-5xl mb-4">📦</div>
+      <h3 class="text-xl font-black text-navy mb-2">Stok Tersimpan!</h3>
+      <p id="modal-stok-detail" class="text-gray-500 text-sm mb-6">Data stok berhasil diperbarui.</p>
+      <button id="btn-tutup-modal-stok"
+        class="w-full bg-navy text-gold py-3 rounded-xl font-black hover:bg-navy-light transition-colors">
+        OK, Siap Buka Warung! ☀️
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== CROOT.JS ===== -->
+  <script src="https://cdn.jsdelivr.net/gh/jscroot/jarak@0.0.1/croot.js"></script>
+
+  <!-- Controller stok — logika terpisah (modular) -->
+  <script src="js/controller/stok.js" type="module"></script>
+
+</body>
+
+</html>
